@@ -574,8 +574,8 @@ loadCoastlines();
 // ---- 3. Unified Shader Layer ----
 const initialData = new Float32Array(PARAMS.lons * PARAMS.lats);
 dataTexture = new THREE.DataTexture(initialData, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
-dataTexture.minFilter = THREE.LinearFilter;
-dataTexture.magFilter = THREE.LinearFilter;
+dataTexture.minFilter = THREE.NearestFilter;
+dataTexture.magFilter = THREE.NearestFilter;
 dataTexture.generateMipmaps = false;
 // FIX BORD 2D : RepeatWrapping pour boucle infinie en mode 2D
 dataTexture.wrapS = THREE.RepeatWrapping;
@@ -584,8 +584,8 @@ dataTexture.needsUpdate = true;
 
 const initialDataNext = new Float32Array(PARAMS.lons * PARAMS.lats);
 const dataTextureNext = new THREE.DataTexture(initialDataNext, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
-dataTextureNext.minFilter = THREE.LinearFilter;
-dataTextureNext.magFilter = THREE.LinearFilter;
+dataTextureNext.minFilter = THREE.NearestFilter;
+dataTextureNext.magFilter = THREE.NearestFilter;
 dataTextureNext.generateMipmaps = false;
 // FIX BORD 2D : RepeatWrapping
 dataTextureNext.wrapS = THREE.RepeatWrapping;
@@ -594,8 +594,8 @@ dataTextureNext.wrapT = THREE.ClampToEdgeWrapping;
 const initialVaporData = new Float32Array(PARAMS.lons * PARAMS.lats);
 vaporTexture = new THREE.DataTexture(initialVaporData, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
 vaporTexture.generateMipmaps = false;
-vaporTexture.minFilter = THREE.LinearFilter;
-vaporTexture.magFilter = THREE.LinearFilter;
+vaporTexture.minFilter = THREE.NearestFilter;
+vaporTexture.magFilter = THREE.NearestFilter;
 // FIX BORD 2D : RepeatWrapping pour boucle infinie
 vaporTexture.wrapS = THREE.RepeatWrapping;
 vaporTexture.wrapT = THREE.ClampToEdgeWrapping;
@@ -605,8 +605,8 @@ vaporTexture.needsUpdate = true;
 const initialWindData = new Float32Array(PARAMS.lons * PARAMS.lats * 4);
 windTexture = new THREE.DataTexture(initialWindData, PARAMS.lons, PARAMS.lats, THREE.RGBAFormat, THREE.FloatType);
 windTexture.generateMipmaps = false;
-windTexture.minFilter = THREE.LinearFilter;
-windTexture.magFilter = THREE.LinearFilter;
+windTexture.minFilter = THREE.NearestFilter;
+windTexture.magFilter = THREE.NearestFilter;
 windTexture.wrapS = THREE.ClampToEdgeWrapping;
 windTexture.wrapT = THREE.ClampToEdgeWrapping;
 windTexture.needsUpdate = true;
@@ -622,6 +622,22 @@ void main() {
 const _FS = `
 uniform sampler2D tData;
 uniform sampler2D tVaporData;
+uniform vec2 u_texSize;
+
+vec4 textureBilinear(sampler2D tex, vec2 uv, vec2 texSize) {
+    vec2 p = uv * texSize - 0.5;
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 texelSize = 1.0 / texSize;
+    vec4 t00 = texture2D(tex, (i + vec2(0.5, 0.5)) * texelSize);
+    vec4 t10 = texture2D(tex, (i + vec2(1.5, 0.5)) * texelSize);
+    vec4 t01 = texture2D(tex, (i + vec2(0.5, 1.5)) * texelSize);
+    vec4 t11 = texture2D(tex, (i + vec2(1.5, 1.5)) * texelSize);
+    vec4 tA = mix(t00, t10, f.x);
+    vec4 tB = mix(t01, t11, f.x);
+    return mix(tA, tB, f.y);
+}
+
 uniform float u_is3D;
 uniform float u_mode; // 0 = Vapor, 1 = Rain
 uniform float u_overlay; // 1 = Overlay Mode
@@ -648,8 +664,8 @@ void main() {
         finalUv = vec2(vUv.x + u_offsetX, 1.0 - vUv.y);
     }
     
-    float val = texture2D(tData, finalUv).r;
-    float vVal = texture2D(tVaporData, finalUv).r;
+    float val = textureBilinear(tData, finalUv, u_texSize).r;
+    float vVal = textureBilinear(tVaporData, finalUv, u_texSize).r;
     
     vec3 col = vec3(0.0);
     float alpha = 0.0;
@@ -689,7 +705,9 @@ material = new THREE.ShaderMaterial({
         u_mode: { value: 0.0 },
         u_time: { value: 0.0 },
         u_overlay: { value: 0.0 },
-        u_offsetX: { value: 0.0 } // FIX BORD 2D : offset UV pour le scrolling infini
+        u_offsetX: { value: 0.0 },
+        u_texSize: { value: new THREE.Vector2(PARAMS.lons, PARAMS.lats) },
+        u_texSize: { value: new THREE.Vector2(PARAMS.lons, PARAMS.lats) } // FIX BORD 2D : offset UV pour le scrolling infini
     },
     vertexShader: _VS,
     fragmentShader: _FS,
@@ -1876,6 +1894,22 @@ function createAtmosphere() {
             shader.fragmentShader = `
                 uniform sampler2D tData;
                 uniform sampler2D tVaporData;
+uniform vec2 u_texSize;
+
+vec4 textureBilinear(sampler2D tex, vec2 uv, vec2 texSize) {
+    vec2 p = uv * texSize - 0.5;
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 texelSize = 1.0 / texSize;
+    vec4 t00 = texture2D(tex, (i + vec2(0.5, 0.5)) * texelSize);
+    vec4 t10 = texture2D(tex, (i + vec2(1.5, 0.5)) * texelSize);
+    vec4 t01 = texture2D(tex, (i + vec2(0.5, 1.5)) * texelSize);
+    vec4 t11 = texture2D(tex, (i + vec2(1.5, 1.5)) * texelSize);
+    vec4 tA = mix(t00, t10, f.x);
+    vec4 tB = mix(t01, t11, f.x);
+    return mix(tA, tB, f.y);
+}
+
                 uniform float u_mode;
                 varying float vShellHeight;
             ` + shader.fragmentShader;
@@ -1894,10 +1928,10 @@ function createAtmosphere() {
                 `
                 #include <alphamap_fragment>
                 ${uvLogic}
-                float prate = texture2D(tData, finalUv).r; 
+                float prate = textureBilinear(tData, finalUv, u_texSize).r; 
                 
                 if (u_mode > 0.5) {
-                    float pwat_val = texture2D(tVaporData, finalUv).r; 
+                    float pwat_val = textureBilinear(tVaporData, finalUv, u_texSize).r; 
                     if (pwat_val < 0.001) discard;
 
                     float rainDensity = smoothstep(0.1, 10.0, prate);
