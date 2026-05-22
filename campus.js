@@ -2240,7 +2240,7 @@ function animateLoop(t) {
 
         renderer.setScissorTest(false);
     }
-
+}
 
 window.addEventListener('resize', updateCameras);
 loadData();
