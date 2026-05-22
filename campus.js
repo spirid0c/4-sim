@@ -404,20 +404,19 @@ function resize2DCanvas() {
     canvas2D.style.height = rect.height + 'px';
 
     // CAMÉRA ORTHOGRAPHIQUE : cadre EXACTEMENT le plan 2.04 x 1.0
-    // On ajuste le frustum pour que le plan soit toujours centré et non rogné,
-    // quelle que soit la forme de l'écran (letterbox / pillarbox).
+    // Adapte le frustum selon la forme de l'écran sans jamais rogner la carte.
     const screenAspect = rect.width / rect.height;
     const planeAspect  = 2.04 / 1.0;
 
     let camHalfW, camHalfH;
     if (screenAspect >= planeAspect) {
-        // Écran plus large que la carte → pillarbox : la hauteur détermine tout
-        camHalfH = 0.5;                        // plan 1.0 de haut
-        camHalfW = camHalfH * screenAspect;    // plus large que 1.02
+        // Écran plus large → la hauteur est le facteur limitant
+        camHalfH = 0.5;
+        camHalfW = camHalfH * screenAspect;
     } else {
-        // Écran plus étroit que la carte → letterbox : la largeur détermine tout
-        camHalfW = 1.02;                       // plan 2.04 de large
-        camHalfH = camHalfW / screenAspect;    // plus haut que 0.5
+        // Écran plus étroit → la largeur est le facteur limitant
+        camHalfW = 1.02;
+        camHalfH = camHalfW / screenAspect;
     }
 
     camera2D.left   = -camHalfW;
@@ -479,8 +478,6 @@ camera3D.position.set(0, 0, 3.5);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(mainContent.clientWidth, mainContent.clientHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
-// Fond bleu océan : élimine les barres noires quand l'écran est plus large que 2.04:1
-renderer.setClearColor(0x2E70C4, 1.0);
 container.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera3D, renderer.domElement);
@@ -577,8 +574,8 @@ loadCoastlines();
 // ---- 3. Unified Shader Layer ----
 const initialData = new Float32Array(PARAMS.lons * PARAMS.lats);
 dataTexture = new THREE.DataTexture(initialData, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
-dataTexture.minFilter = THREE.LinearFilter;
-dataTexture.magFilter = THREE.LinearFilter;
+dataTexture.minFilter = THREE.NearestFilter;
+dataTexture.magFilter = THREE.NearestFilter;
 dataTexture.generateMipmaps = false;
 // FIX BORD 2D : RepeatWrapping pour boucle infinie en mode 2D
 dataTexture.wrapS = THREE.RepeatWrapping;
@@ -587,8 +584,8 @@ dataTexture.needsUpdate = true;
 
 const initialDataNext = new Float32Array(PARAMS.lons * PARAMS.lats);
 const dataTextureNext = new THREE.DataTexture(initialDataNext, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
-dataTextureNext.minFilter = THREE.LinearFilter;
-dataTextureNext.magFilter = THREE.LinearFilter;
+dataTextureNext.minFilter = THREE.NearestFilter;
+dataTextureNext.magFilter = THREE.NearestFilter;
 dataTextureNext.generateMipmaps = false;
 // FIX BORD 2D : RepeatWrapping
 dataTextureNext.wrapS = THREE.RepeatWrapping;
@@ -597,8 +594,8 @@ dataTextureNext.wrapT = THREE.ClampToEdgeWrapping;
 const initialVaporData = new Float32Array(PARAMS.lons * PARAMS.lats);
 vaporTexture = new THREE.DataTexture(initialVaporData, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
 vaporTexture.generateMipmaps = false;
-vaporTexture.minFilter = THREE.LinearFilter;
-vaporTexture.magFilter = THREE.LinearFilter;
+vaporTexture.minFilter = THREE.NearestFilter;
+vaporTexture.magFilter = THREE.NearestFilter;
 // FIX BORD 2D : RepeatWrapping pour boucle infinie
 vaporTexture.wrapS = THREE.RepeatWrapping;
 vaporTexture.wrapT = THREE.ClampToEdgeWrapping;
@@ -608,8 +605,8 @@ vaporTexture.needsUpdate = true;
 const initialWindData = new Float32Array(PARAMS.lons * PARAMS.lats * 4);
 windTexture = new THREE.DataTexture(initialWindData, PARAMS.lons, PARAMS.lats, THREE.RGBAFormat, THREE.FloatType);
 windTexture.generateMipmaps = false;
-windTexture.minFilter = THREE.LinearFilter;
-windTexture.magFilter = THREE.LinearFilter;
+windTexture.minFilter = THREE.NearestFilter;
+windTexture.magFilter = THREE.NearestFilter;
 windTexture.wrapS = THREE.ClampToEdgeWrapping;
 windTexture.wrapT = THREE.ClampToEdgeWrapping;
 windTexture.needsUpdate = true;
@@ -667,7 +664,7 @@ void main() {
     } 
     // ETAT 2 : Mode Rain classique (Sphère de données 100% transparente)
     else if (u_mode > 0.5) {
-        alpha = 0.0; // Laisse apparaître le globe matériel de base
+        alpha = 0.0;
     } 
     // ETAT 3 : Mode Vapor classique (Vapeur sur fond noir)
     else {
@@ -715,8 +712,8 @@ dataPlane.renderOrder = 2;
 scene.add(dataPlane);
 
 // ---- 3c. 2D Base Ground (The "Surface" Twin) ----
-// basePlane très large (100 unités) pour remplir n'importe quel ratio d'écran sans bandes noires
-const basePlaneGeom = new THREE.PlaneGeometry(100, 100);
+// basePlane taille originale 2.04x1.0 : fond bleu uniquement dans les bords du planisphère
+const basePlaneGeom = new THREE.PlaneGeometry(2.04, 1.0);
 const basePlaneMat = new THREE.MeshBasicMaterial({ color: 0x2E70C4 });
 basePlane = new THREE.Mesh(basePlaneGeom, basePlaneMat);
 basePlane.position.set(0, 0, -0.01);
@@ -1495,10 +1492,6 @@ function render2D() {
     ctx2D.clearRect(0, 0, W, H);
 
     // ── CALCUL DE LA ZONE DU PLAN 2.04×1.0 dans le canvas HTML ──
-    // La caméra orthographique (left=-camHalfW, right=+camHalfW, top=+camHalfH, bottom=-camHalfH)
-    // projette le plan 2.04×1.0 sur une portion du canvas.
-    // On recalcule ici les bornes en pixels pour clipper le dessin.
-    const rect = canvas2D; // dimensions déjà en pixels physiques
     const screenW = W / dpr;
     const screenH = H / dpr;
     const screenAspect = screenW / screenH;
@@ -1506,26 +1499,22 @@ function render2D() {
 
     let planePixW, planePixH, planeOffX, planeOffY;
     if (screenAspect >= planeAspect) {
-        // Écran plus large : hauteur contrainte, la largeur du plan < largeur de l'écran
         planePixH = screenH;
         planePixW = screenH * planeAspect;
         planeOffX = (screenW - planePixW) / 2;
         planeOffY = 0;
     } else {
-        // Écran plus étroit : largeur contrainte, la hauteur du plan < hauteur de l'écran
         planePixW = screenW;
         planePixH = screenW / planeAspect;
         planeOffX = 0;
         planeOffY = (screenH - planePixH) / 2;
     }
 
-    // Coordonnées en pixels physiques (DPR)
     const pX = planeOffX * dpr;
     const pY = planeOffY * dpr;
     const pW = planePixW * dpr;
     const pH = planePixH * dpr;
 
-    // Projection lat/lon → pixels DANS la zone du plan
     const projectToCanvas = (lat, lon) => {
         let l_360 = ((lon % 360) + 360) % 360;
         const x = pX + (l_360 / 360.0) * pW;
@@ -1596,9 +1585,8 @@ function render2D() {
 
             ctx2D.beginPath();
             let cLat = pLat[i], cLon = pLon[i];
-            // FIX FOUET : prevX initialisé à null (pas -1) pour la détection correcte du premier point
+            // FIX FOUET : prevX initialisé à null pour la détection correcte
             let prevX = null;
-            let prevY = null;
             let started = false;
 
             for (let t = 0; t < max2DTrail; t++) {
@@ -1607,22 +1595,20 @@ function render2D() {
                     ctx2D.moveTo(pos.x, pos.y);
                     started = true;
                 } else {
-                    // FIX FOUET : Si le saut en X est > 50% de la largeur, c'est une téléportation
-                    // On coupe le trait proprement avec un moveTo au lieu de lineTo
+                    // FIX FOUET : saut > 50% largeur = téléportation => couper le trait
                     if (prevX !== null && Math.abs(pos.x - prevX) > W * 0.5) {
-                        ctx2D.moveTo(pos.x, pos.y); // Brise la ligne, recommence au nouveau point
+                        ctx2D.moveTo(pos.x, pos.y);
                     } else {
                         ctx2D.lineTo(pos.x, pos.y);
                     }
                 }
                 prevX = pos.x;
-                prevY = pos.y;
 
                 const [up, vp] = getWindAtPos(cLat, cLon, PARAMS.currentFrame, aU2D, aV2D);
                 const cosLat = Math.max(0.05, Math.cos(cLat * Math.PI / 180));
                 cLon -= up * WIND_SCALE * 1.2 / cosLat;
                 cLat -= vp * WIND_SCALE * 1.2;
-                // FIX FOUET : Normaliser la longitude pour garder la continuité de projection
+                // FIX FOUET : normaliser la longitude
                 cLon = ((cLon % 360) + 360) % 360;
             }
 
@@ -2725,185 +2711,183 @@ CITIES_DB.forEach(city => {
 initComparisonSlots(); // Initialise les menus déroulants en bas
 updateFrame();
 
+// --- NARRATIVE SCROLL LOGIC ---
+const narrativeWrapper = document.getElementById('narrative-wrapper');
+const appUi = document.getElementById('app-ui');
+
+function enterSimulation() {
+    isCinematicMode = false;
+    lastInteractionTime = performance.now();
+    narrativeWrapper.style.opacity = '0';
+    setTimeout(() => {
+        narrativeWrapper.style.display = 'none';
+        appUi.style.opacity = '1';
+        document.body.style.overflow = 'hidden';
+    }, 1000);
+}
+
+['btn-enter-direct', 'btn-enter-story'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', enterSimulation);
+});
+
 // ==========================================
-// ── INSTALLATION CONTROLLER (OPEN CAMPUS) ──
+// ── HARDWARE : WEBSERIAL API & COCKPIT ──
 // ==========================================
 
-class InstallationController {
-    constructor(scene, camera3D, camera2D, renderer, PARAMS) {
-        this.scene = scene;
-        this.camera3D = camera3D;
-        this.camera2D = camera2D;
-        this.renderer = renderer;
-        this.PARAMS = PARAMS;
-        
-        // Configuration de la boucle
-        this.durationMs = 25000; // 25 secondes pour la boucle complète
-        this.startTime = performance.now();
-        
-        // Trajectoire
-        this.hyunjungRoute = [
-            [137.5000, 37.5000], [140.8930, 40.0498], [144.5439, 42.4930], [148.4838, 44.8112], [152.7427, 46.9828], 
-            [157.3472, 48.9834], [162.3168, 50.7860], [167.6585, 52.3613], [173.3613, 53.6789], [179.3906, 54.7095], 
-            [-174.3151, 55.4267], [-167.8431, 55.8107], [-161.3005, 55.8500], [-154.8026, 55.5435], [-148.4595, 54.9003], 
-            [-142.3638, 53.9387], [-136.5831, 52.6836], [-131.1578, 51.1641], [-126.1040, 49.4103], [-121.4180, 47.4521], 
-            [-117.0829, 45.3170], [-113.0733, 43.0301], [-109.3596, 40.6135], [-105.9108, 38.0864], [-102.6967, 35.4652], 
-            [-99.6885, 32.7644], [-96.8596, 29.9959], [-94.1859, 27.1703], [-91.6453, 24.2965], [-89.2181, 21.3823], 
-            [-86.8862, 18.4346], [-84.6334, 15.4594], [-82.4447, 12.4621], [-80.3061, 9.4476], [-78.2048, 6.4204], 
-            [-76.1284, 3.3847], [-74.0650, 0.3446], [-72.0029, -2.6959], [-69.9304, -5.7330], [-67.8358, -8.7625], 
-            [-65.7068, -11.7802], [-63.5306, -14.7819], [-61.2936, -17.7625], [-58.9810, -20.7170], [-56.5769, -23.6393], 
-            [-54.0637, -26.5229], [-51.4220, -29.3602], [-48.6304, -32.1425], [-45.6650, -34.8597], 
-            [-42.5000, -37.5000], 
-            [-39.1070, -40.0498], [-35.4561, -42.4930], [-31.5162, -44.8112], [-27.2573, -46.9828], [-22.6528, -48.9834], 
-            [-17.6832, -50.7860], [-12.3415, -52.3613], [-6.6387, -53.6789], [-0.6094, -54.7095], [5.6849, -55.4267], 
-            [12.1569, -55.8107], [18.6995, -55.8500], [25.1974, -55.5435], [31.5405, -54.9003], [37.6362, -53.9387], 
-            [43.4169, -52.6836], [48.8422, -51.1641], [53.8960, -49.4103], [58.5820, -47.4521], [62.9171, -45.3170], 
-            [66.9267, -43.0301], [70.6404, -40.6135], [74.0892, -38.0864], [77.3033, -35.4652], [80.3115, -32.7644], 
-            [83.1404, -29.9959], [85.8141, -27.1703], [88.3547, -24.2965], [90.7819, -21.3823], [93.1138, -18.4346], 
-            [95.3666, -15.4594], [97.5553, -12.4621], [99.6939, -9.4476], [101.7952, -6.4204], [103.8716, -3.3847], 
-            [105.9350, -0.3446], [107.9971, 2.6959], [110.0696, 5.7330], [112.1642, 8.7625], [114.2932, 11.7802], 
-            [116.4694, 14.7819], [118.7064, 17.7625], [121.0190, 20.7170], [123.4231, 23.6393], [125.9363, 26.5229], 
-            [128.5780, 29.3602], [131.3696, 32.1425], [134.3350, 34.8597]
-        ];
+const btnConnectCockpit = document.getElementById('btn-connect-cockpit');
+if (btnConnectCockpit) {
+    btnConnectCockpit.addEventListener('click', async () => {
+        try {
+            serialPort = await navigator.serial.requestPort();
 
-        this.initURLParams();
-        this.initCurve();
-        
-        // Cache l'UI globale pour le mode installation
-        const appUi = document.getElementById('app-ui');
-        if (appUi) appUi.style.display = 'none';
+            // ⚠️ VITESSE CORRIGÉE : Calée exactement sur le "Serial.begin(115200);" de ton Arduino
+            await serialPort.open({ baudRate: 115200 });
 
-        // Lancement de la boucle
-        this.autoPlayLoop();
+            btnConnectCockpit.innerText = "⚡ COCKPIT CONNECTED";
+            btnConnectCockpit.style.color = "#00ff88";
+            btnConnectCockpit.style.borderColor = "#00ff88";
+
+            const textDecoder = new TextDecoderStream();
+            serialPort.readable.pipeTo(textDecoder.writable);
+            const reader = textDecoder.readable.getReader();
+
+            let buffer = "";
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += value;
+                let lines = buffer.split('\n');
+                buffer = lines.pop(); // Garde le reste pour la prochaine boucle
+                for (let line of lines) {
+                    if (line.trim().length > 0) parseCockpitData(line.trim());
+                }
+            }
+        } catch (err) {
+            console.error("Erreur de connexion série:", err);
+            btnConnectCockpit.innerText = "❌ CONNECTION FAILED";
+            btnConnectCockpit.style.color = "#ff3333";
+        }
+    });
+}
+
+function parseCockpitData(dataStr) {
+    // 1. EXTRACTION DU JOYSTICK 3D
+    const joyMatch = dataStr.match(/JOY:(\d+),(\d+)/);
+    if (joyMatch) {
+        joystickData.x = parseInt(joyMatch[1]);
+        joystickData.y = parseInt(joyMatch[2]);
     }
 
-    initURLParams() {
-        const urlParams = new URLSearchParams(window.location.search);
-        this.viewMode = urlParams.get('view') === '2d' ? '2d' : '3d';
-        this.season = urlParams.get('season') === 'winter' ? 'winter' : 'summer';
-        
-        // Appliquer la configuration au système existant
-        this.PARAMS.viewMode = (this.viewMode === '2d') ? 1 : 0;
-        this.PARAMS.showWind = true; // Forcer le vent actif sur toutes les vues
-        
-        // Forcer l'affichage du canvas 2D si on est en mode 2D
-        const canvas2DContainer = document.getElementById('canvas-2d-container');
-        if (canvas2DContainer) {
-            if (this.PARAMS.viewMode === 1) {
-                canvas2DContainer.style.display = 'flex';
-                canvas2DContainer.style.width = '100%';
-                canvas2DContainer.style.borderRight = 'none';
-                // PLEIN ÉCRAN : écraser les marges top/bottom prévues pour l'UI interactive
-                canvas2DContainer.style.top = '0';
-                canvas2DContainer.style.bottom = '0';
-            } else {
-                canvas2DContainer.style.display = 'none';
+    // 2. EXTRACTION DU POTENTIOMÈTRE ROTATIF (SÉLECTION DES VILLES)
+    const potMatch = dataStr.match(/POT:(\d+)/);
+    if (potMatch && gameState === 'SELECT') {
+        const potVal = parseInt(potMatch[1]);
+        let mappedIndex = Math.floor((potVal / 1024) * CITIES_DB.length);
+        mappedIndex = Math.max(0, Math.min(CITIES_DB.length - 1, mappedIndex));
+
+        if (mappedIndex !== hoveredCityIndex) {
+            hoveredCityIndex = mappedIndex;
+            updateViseur();
+        }
+    }
+
+    // 3. EXTRACTION DU POTENTIOMÈTRE RECTILIGNE (TIMELINE / JOURS)
+    const sliderMatch = dataStr.match(/SLIDER:(\d+)/);
+    if (sliderMatch && gameState === 'SIMULATE') {
+        const sliderVal = parseInt(sliderMatch[1]);
+
+        // Filtre anti-bruit musclé (> 25) car la fonction map() de l'Arduino amplifie le signal
+        if (Math.abs(sliderVal - lastSliderRaw) > 25) {
+            lastSliderRaw = sliderVal;
+
+            // Convertit la valeur 0-1023 vers le nombre de frames de la simulation
+            let targetFrame = Math.floor((sliderVal / 1024) * PARAMS.frames);
+            targetFrame = Math.max(0, Math.min(PARAMS.frames - 1, targetFrame));
+
+            // On applique la frame si elle change
+            if (targetFrame !== PARAMS.currentFrame) {
+
+                // MAGIE UX : Auto-Pause dès qu'on manipule la timeline
+                if (isPlaying) {
+                    isPlaying = false;
+                    const playBtn = document.getElementById('btn-play');
+                    if (playBtn) {
+                        playBtn.innerText = TRANSLATIONS[currentLang].play || "▶ Play";
+                        playBtn.classList.remove('playing');
+                    }
+                }
+
+                PARAMS.currentFrame = targetFrame;
+
+                // Réalignement des flèches de vent pour suivre la timeline
+                if (typeof alignParticlesToFrame === 'function') {
+                    alignParticlesToFrame(PARAMS.currentFrame);
+                }
+
+                updateFrame();
             }
         }
-
-        // En 3D, s'assurer que le renderer remplit bien tout l'écran (la caméra est configurée sur tout le viewport)
-        if (this.PARAMS.viewMode === 0) {
-            // Rapprocher la caméra pour que le globe remplisse mieux l'écran en mode installation
-            camera3D.position.set(0, 0, 2.9);
-            camera3D.lookAt(0, 0, 0);
-        }
-        
-        // Clic automatique sur le bouton de bascule de saison pour charger les bonnes données
-        if (this.season === 'winter') {
-            const btnToggle = document.getElementById('toggle-data');
-            if (btnToggle && btnToggle.innerText.includes('Summer')) btnToggle.click();
-        } else {
-            const btnToggle = document.getElementById('toggle-data');
-            if (btnToggle && btnToggle.innerText.includes('Winter')) btnToggle.click();
-        }
-
-        // Bascule de la visibilité des plans/sphères
-        if (typeof updateCameras === "function") {
-            setTimeout(updateCameras, 100); // Délai pour s'assurer que le layout DOM est calculé (pour le canvas 2D)
-        }
     }
 
-    initCurve() {
-        const points = this.hyunjungRoute.map(coord => {
-            const [lon, lat] = coord;
-            return this.viewMode === '3d' 
-                ? this.getSpherePosition(lon, lat, 1.008) // Légèrement au-dessus (globe=1.0)
-                : this.getPlanePosition(lon, lat, 0.02);  // Au-dessus du plan 2D
-        });
-
-        // CatmullRomCurve3 (fermée pour boucler)
-        this.curve = new THREE.CatmullRomCurve3(points, true);
+    // 4. DÉTECTION DES BOUTONS D'ARCADE / INTERRUPTEURS
+    if (dataStr.includes("CMD:TOGGLE_PLAY")) {
+        const btn = document.getElementById('toggle-data');
+        if (btn) btn.click();
     }
 
-    getSpherePosition(lon, lat, radius) {
-        const latRad = lat * Math.PI / 180;
-        const lonRad = lon * Math.PI / 180;
-        return new THREE.Vector3(
-            radius * Math.cos(latRad) * Math.cos(lonRad),
-            radius * Math.sin(latRad),
-            -radius * Math.cos(latRad) * Math.sin(lonRad)
-        );
+    if (dataStr.includes("CMD:TOGGLE_MODE")) {
+        const btn = document.getElementById('btn-toggle-data-type');
+        if (btn) btn.click();
     }
 
-    getPlanePosition(lon, lat, z) {
-        // Mapping UV existant : width=2.04, height=1.0, center=0,0
-        return new THREE.Vector3(
-            (lon / 360) * 2.04,
-            (lat / 180) * 1.0,
-            z
-        );
-    }
-
-    autoPlayLoop = () => {
-        requestAnimationFrame(this.autoPlayLoop);
-
-        // Sécurité pour forcer la taille du canvas 2D s'il a raté le layout DOM initial
-        if (this.viewMode === '2d' && typeof canvas2D !== 'undefined' && canvas2D.width === 0) {
-            if (typeof resize2DCanvas === 'function') resize2DCanvas();
-        }
-
-        // L'ASTUCE DE SYNCHRONISATION ABSOLUE :
-        // Au lieu d'utiliser le temps depuis le chargement de la page (performance.now()),
-        // on utilise l'horloge système (Date.now()). 
-        // Ainsi, les 4 écrans, peu importe quand ils finissent de charger, seront parfaitement synchronisés !
-        const now = Date.now();
-        const elapsed = now % this.durationMs;
-        const progress = elapsed / this.durationMs;
-
-        // 1. Calculer la position actuelle sur la courbe géodésique
-        const tracerPos = this.curve.getPointAt(progress);
-
-        // 2. Synchroniser la météo (currentDay / Frame)
-        const targetFrame = Math.floor(progress * this.PARAMS.frames);
-        if (targetFrame !== this.PARAMS.currentFrame && typeof updateFrame === 'function') {
-            this.PARAMS.currentFrame = targetFrame;
-            // On peut aligner le vent pour être fluide
-            if (typeof alignParticlesToFrame === 'function') alignParticlesToFrame(this.PARAMS.currentFrame);
-            updateFrame(); 
-        }
-
-        // 3. Tracking Caméra automatique sans lerp pour une linéarité parfaite (uniquement en 3D)
-        if (this.viewMode === '3d') {
-            const camTarget = tracerPos.clone().normalize().multiplyScalar(2.9); // globe entier visible
-            this.camera3D.position.copy(camTarget);
-            this.camera3D.lookAt(0, 0, 0); 
-        }
-        // En 2D, la caméra reste fixe globale pour observer toute la carte
+    if (dataStr.includes("CMD:TOGGLE_ARROWS")) {
+        const btn = document.getElementById('btn-toggle-wind');
+        if (btn) btn.click();
     }
 }
 
-// 1. On cache immédiatement le wrapper narratif
-const navWrapper = document.getElementById('narrative-wrapper');
-if (navWrapper) navWrapper.style.display = 'none';
+// ==========================================
+// ── GESTION DE LA TRACKBALL USB (POINTER LOCK) ──
+// ==========================================
 
-// 2. On instancie le mode Installation
-const installation = new InstallationController(
-    scene, 
-    camera3D, 
-    camera2D, 
-    renderer, 
-    PARAMS
-);
+const trackballSensitivity = 0.0015;
 
-// 3. Désactiver les anciens contrôles OrbitControls pour éviter les conflits
-controls.enabled = false;
+// 1. Activer le mode Arcade au clic (Capture du curseur)
+// Obligatoire : les navigateurs exigent une action humaine (clic) pour verrouiller la souris
+document.addEventListener('click', () => {
+    // On ne demande le verrouillage que si on est dans la phase d'exploration (SIMULATE)
+    if (gameState === 'SIMULATE') {
+        document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+        document.body.requestPointerLock();
+    }
+});
+
+// 2. Écouter les mouvements bruts de la boule (sans limites de bords)
+document.addEventListener('mousemove', (event) => {
+    // Vérifie si le navigateur a bien emprisonné la souris
+    const isLocked = document.pointerLockElement === document.body || document.mozPointerLockElement === document.body;
+
+    if (isLocked && gameState === 'SIMULATE' && PARAMS.viewMode === 0) {
+        // Mouvement infini (event.movementX et Y ne s'arrêtent jamais)
+        const moveX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+        const moveY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+        if (Math.abs(moveX) > 0 || Math.abs(moveY) > 0) {
+            isDraggingGlobe = true;
+            lastInteractionTime = performance.now();
+
+            let spherical = new THREE.Spherical().setFromVector3(camera3D.position);
+
+            // Applique la rotation
+            spherical.theta += moveX * trackballSensitivity;
+            spherical.phi += moveY * trackballSensitivity;
+
+            // Limite pour ne pas passer sous les pôles et retourner la caméra
+            spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+            camera3D.position.setFromSpherical(spherical);
+            camera3D.lookAt(0, 0, 0);
+        }
+    }
+});
