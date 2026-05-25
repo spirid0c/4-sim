@@ -2770,10 +2770,10 @@ class InstallationController {
         this.PARAMS = PARAMS;
         
         // Configuration de la boucle
-        this.durationMs = 25000; // 25 secondes pour la boucle complète
+        this.durationMs = 90000; // 90 secondes (plus lent et contemplatif)
         this.startTime = performance.now();
         
-        // Trajectoire
+        // Trajectoire (Aller simple Japon -> Brésil)
         this.hyunjungRoute = [
             [137.5000, 37.5000], [140.8930, 40.0498], [144.5439, 42.4930], [148.4838, 44.8112], [152.7427, 46.9828], 
             [157.3472, 48.9834], [162.3168, 50.7860], [167.6585, 52.3613], [173.3613, 53.6789], [179.3906, 54.7095], 
@@ -2785,17 +2785,7 @@ class InstallationController {
             [-76.1284, 3.3847], [-74.0650, 0.3446], [-72.0029, -2.6959], [-69.9304, -5.7330], [-67.8358, -8.7625], 
             [-65.7068, -11.7802], [-63.5306, -14.7819], [-61.2936, -17.7625], [-58.9810, -20.7170], [-56.5769, -23.6393], 
             [-54.0637, -26.5229], [-51.4220, -29.3602], [-48.6304, -32.1425], [-45.6650, -34.8597], 
-            [-42.5000, -37.5000], 
-            [-39.1070, -40.0498], [-35.4561, -42.4930], [-31.5162, -44.8112], [-27.2573, -46.9828], [-22.6528, -48.9834], 
-            [-17.6832, -50.7860], [-12.3415, -52.3613], [-6.6387, -53.6789], [-0.6094, -54.7095], [5.6849, -55.4267], 
-            [12.1569, -55.8107], [18.6995, -55.8500], [25.1974, -55.5435], [31.5405, -54.9003], [37.6362, -53.9387], 
-            [43.4169, -52.6836], [48.8422, -51.1641], [53.8960, -49.4103], [58.5820, -47.4521], [62.9171, -45.3170], 
-            [66.9267, -43.0301], [70.6404, -40.6135], [74.0892, -38.0864], [77.3033, -35.4652], [80.3115, -32.7644], 
-            [83.1404, -29.9959], [85.8141, -27.1703], [88.3547, -24.2965], [90.7819, -21.3823], [93.1138, -18.4346], 
-            [95.3666, -15.4594], [97.5553, -12.4621], [99.6939, -9.4476], [101.7952, -6.4204], [103.8716, -3.3847], 
-            [105.9350, -0.3446], [107.9971, 2.6959], [110.0696, 5.7330], [112.1642, 8.7625], [114.2932, 11.7802], 
-            [116.4694, 14.7819], [118.7064, 17.7625], [121.0190, 20.7170], [123.4231, 23.6393], [125.9363, 26.5229], 
-            [128.5780, 29.3602], [131.3696, 32.1425], [134.3350, 34.8597]
+            [-42.5000, -37.5000]
         ];
 
         this.initURLParams();
@@ -2863,8 +2853,8 @@ class InstallationController {
                 : this.getPlanePosition(lon, lat, 0.02);  // Au-dessus du plan 2D
         });
 
-        // CatmullRomCurve3 (fermée pour boucler)
-        this.curve = new THREE.CatmullRomCurve3(points, true);
+        // CatmullRomCurve3 (ouverte, false, pour un aller simple)
+        this.curve = new THREE.CatmullRomCurve3(points, false);
     }
 
     getSpherePosition(lon, lat, radius) {
@@ -2912,6 +2902,12 @@ class InstallationController {
             // On peut aligner le vent pour être fluide
             if (typeof alignParticlesToFrame === 'function') alignParticlesToFrame(this.PARAMS.currentFrame);
             updateFrame(); 
+            
+            // 3. Mise à jour du Day Counter dans le HTML
+            const dayCounterEl = document.getElementById('day-counter');
+            if (dayCounterEl) {
+                dayCounterEl.innerText = 'DAY ' + (this.PARAMS.currentFrame + 1);
+            }
         }
 
         // 3. Tracking Caméra automatique sans lerp pour une linéarité parfaite (uniquement en 3D)
