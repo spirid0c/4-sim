@@ -2921,4 +2921,8 @@ document.addEventListener('mousemove', (event) => {
             // Limite pour ne pas passer sous les pôles et retourner la caméra
             spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
 
-            camera3D
+            camera3D.position.setFromSpherical(spherical);
+            camera3D.lookAt(0, 0, 0);
+        }
+    }
+});
