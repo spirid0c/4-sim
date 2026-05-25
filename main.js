@@ -191,8 +191,9 @@ let windTexture = null;
 let material = null;
 
 // ---- Particle Advection System (Windy-style) ----
-const N_PARTICLES = 3500;   // Couverture globale très dense
-const TRAIL_LEN = 35;       // CORRECTION : Traits beaucoup plus longs (anciennement 12)
+const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
+const N_PARTICLES = isMobile ? 1500 : 3500;   // Couverture globale très dense
+const TRAIL_LEN = isMobile ? 20 : 35;       // CORRECTION : Traits beaucoup plus longs (anciennement 12)
 const WIND_RADIUS = 1.002;  // Très proche de la surface
 const WIND_SCALE = 0.005;
 
@@ -573,7 +574,7 @@ loadCoastlines();
 
 // ---- 3. Unified Shader Layer ----
 const initialData = new Float32Array(PARAMS.lons * PARAMS.lats);
-dataTexture = new THREE.DataTexture(initialData, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
+dataTexture = new THREE.DataTexture(initialData, PARAMS.lons, PARAMS.lats, THREE.LuminanceFormat, THREE.FloatType);
 dataTexture.minFilter = THREE.NearestFilter;
 dataTexture.magFilter = THREE.NearestFilter;
 dataTexture.generateMipmaps = false;
@@ -583,7 +584,7 @@ dataTexture.wrapT = THREE.ClampToEdgeWrapping;
 dataTexture.needsUpdate = true;
 
 const initialDataNext = new Float32Array(PARAMS.lons * PARAMS.lats);
-const dataTextureNext = new THREE.DataTexture(initialDataNext, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
+const dataTextureNext = new THREE.DataTexture(initialDataNext, PARAMS.lons, PARAMS.lats, THREE.LuminanceFormat, THREE.FloatType);
 dataTextureNext.minFilter = THREE.NearestFilter;
 dataTextureNext.magFilter = THREE.NearestFilter;
 dataTextureNext.generateMipmaps = false;
@@ -592,7 +593,7 @@ dataTextureNext.wrapS = THREE.RepeatWrapping;
 dataTextureNext.wrapT = THREE.ClampToEdgeWrapping;
 
 const initialVaporData = new Float32Array(PARAMS.lons * PARAMS.lats);
-vaporTexture = new THREE.DataTexture(initialVaporData, PARAMS.lons, PARAMS.lats, THREE.RedFormat, THREE.FloatType);
+vaporTexture = new THREE.DataTexture(initialVaporData, PARAMS.lons, PARAMS.lats, THREE.LuminanceFormat, THREE.FloatType);
 vaporTexture.generateMipmaps = false;
 vaporTexture.minFilter = THREE.NearestFilter;
 vaporTexture.magFilter = THREE.NearestFilter;
