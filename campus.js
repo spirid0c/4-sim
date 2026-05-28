@@ -2890,8 +2890,42 @@ class InstallationController {
         // on utilise l'horloge système (Date.now()). 
         // Ainsi, les 4 écrans, peu importe quand ils finissent de charger, seront parfaitement synchronisés !
         const now = Date.now();
+        const loopIndex = Math.floor(now / this.durationMs);
         const elapsed = now % this.durationMs;
         const progress = elapsed / this.durationMs;
+
+        // Alternance automatique 3D / 2D à chaque cycle
+        const targetViewMode = (loopIndex % 2 === 0) ? 0 : 1;
+        
+        if (this.PARAMS.viewMode !== targetViewMode) {
+            this.PARAMS.viewMode = targetViewMode;
+            
+            const canvas2DContainer = document.getElementById('canvas-2d-container');
+            if (canvas2DContainer) {
+                if (this.PARAMS.viewMode === 1) {
+                    canvas2DContainer.style.display = 'flex';
+                    canvas2DContainer.style.width = '100%';
+                    canvas2DContainer.style.borderRight = 'none';
+                    canvas2DContainer.style.top = '0';
+                    canvas2DContainer.style.bottom = '0';
+                } else {
+                    canvas2DContainer.style.display = 'none';
+                }
+            }
+            
+            if (this.PARAMS.viewMode === 0) {
+                this.camera3D.position.set(0, 0, 2.9);
+                this.camera3D.lookAt(0, 0, 0);
+            }
+            
+            // Bascule correcte des nuages (précipitations) selon le mode
+            if (typeof atmosphereSphere !== 'undefined' && atmosphereSphere) {
+                atmosphereSphere.visible = (this.PARAMS.displayMode === 'precip' && this.PARAMS.viewMode === 0);
+            }
+            if (typeof atmospherePlane !== 'undefined' && atmospherePlane) {
+                atmospherePlane.visible = (this.PARAMS.displayMode === 'precip' && this.PARAMS.viewMode === 1);
+            }
+        }
 
         // 1. Calculer la position actuelle sur la courbe géodésique
         const tracerPos = this.curve.getPointAt(progress);
