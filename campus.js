@@ -2948,11 +2948,12 @@ class InstallationController {
             // 3. Mise à jour du Day Counter dans le HTML
             const dayCounterEl = document.getElementById('day-counter');
             if (dayCounterEl) {
-                // Dataset contient 4 frames par jour (une toutes les 6 heures)
-                const currentDay = Math.floor(this.PARAMS.currentFrame / 4) + 1;
-                // S'assurer qu'on ne dépasse pas 91 
-                const displayDay = Math.min(currentDay, 91);
-                dayCounterEl.innerText = 'DAY ' + displayDay;
+                // Pour garantir une synchronisation absolue des textes sur les deux tablettes 
+                // malgré des jeux de données de longueurs légèrement différentes (été vs hiver),
+                // on calcule le jour affiché strictement en fonction de la progression globale (0 à 1)
+                // rapportée à 91 jours.
+                const displayDay = Math.floor(progress * 91) + 1;
+                dayCounterEl.innerText = 'DAY ' + Math.min(displayDay, 91);
             }
         }
 
