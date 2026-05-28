@@ -2771,7 +2771,7 @@ class InstallationController {
         this.PARAMS = PARAMS;
         
         // Configuration de la boucle
-        this.durationMs = 90000; // 90 secondes (plus lent et contemplatif)
+        this.durationMs = 60000; // 60 secondes (plus rapide comme demandé)
         this.startTime = performance.now();
         
         // Trajectoire (Aller simple Japon -> Brésil)
@@ -2948,7 +2948,11 @@ class InstallationController {
             // 3. Mise à jour du Day Counter dans le HTML
             const dayCounterEl = document.getElementById('day-counter');
             if (dayCounterEl) {
-                dayCounterEl.innerText = 'DAY ' + (this.PARAMS.currentFrame + 1);
+                // Dataset contient 4 frames par jour (une toutes les 6 heures)
+                const currentDay = Math.floor(this.PARAMS.currentFrame / 4) + 1;
+                // S'assurer qu'on ne dépasse pas 91 
+                const displayDay = Math.min(currentDay, 91);
+                dayCounterEl.innerText = 'DAY ' + displayDay;
             }
         }
 
