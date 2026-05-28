@@ -2908,6 +2908,10 @@ class InstallationController {
                     canvas2DContainer.style.borderRight = 'none';
                     canvas2DContainer.style.top = '0';
                     canvas2DContainer.style.bottom = '0';
+                    if (typeof dataPlane !== 'undefined' && dataPlane) {
+                        dataPlane.rotation.set(0, 0, 0);
+                        dataPlane.position.set(0, 0, 0);
+                    }
                 } else {
                     canvas2DContainer.style.display = 'none';
                 }
@@ -2917,6 +2921,9 @@ class InstallationController {
                 this.camera3D.position.set(0, 0, 2.9);
                 this.camera3D.lookAt(0, 0, 0);
             }
+            
+            if (typeof updateCameras === 'function') updateCameras();
+            if (typeof camera2D !== 'undefined') camera2D.lookAt(0, 0, 0);
             
             // Bascule correcte des nuages (précipitations) selon le mode
             if (typeof atmosphereSphere !== 'undefined' && atmosphereSphere) {
